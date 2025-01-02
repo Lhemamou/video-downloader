@@ -1,41 +1,65 @@
 import subprocess
 import sys
 import os
+import logging
+
+def setup_logging(log_file):
+    # Configure logging to write to both console and a log file
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler(log_file),  # Log to a file
+            logging.StreamHandler(sys.stdout)  # Log to the console
+        ]
+    )
 
 def download_videos(sub_lang, urls_file):
-    # Verificar si el archivo existe
+    # Check if the file exists
     if not os.path.exists(urls_file):
-        print(f"Error: El archivo {urls_file} no existe.")
+        logging.error(f"The file {urls_file} does not exist.")
         return
 
-    # Comando base de yt-dlp
+    # Create the download directory if it doesn't exist
+    download_dir = os.path.join("download", sub_lang)
+    os.makedirs(download_dir, exist_ok=True)
+
+    # Base command for yt-dlp
     command = [
         "yt-dlp",
         "--merge-output-format", "mp4",
         "--write-subs",
         "--write-auto-subs",
         "--sub-langs", sub_lang,
-        "-a", urls_file
+        "-a", urls_file,
+        "--output", os.path.join(download_dir, "%(title)s.%(ext)s"),
+        "--no-overwrites"  # Skip downloading if the file already exists
     ]
 
     try:
-        # Ejecutar el comando
+        # Execute the command
+        logging.info(f"Starting download for language: {sub_lang}")
         subprocess.run(command, check=True)
-        print("Descarga completada.")
+        logging.info("Download completed.")
     except subprocess.CalledProcessError as e:
-        print(f"Error al ejecutar yt-dlp: {e}")
+        logging.error(f"Error executing yt-dlp: {e}")
     except Exception as e:
-        print(f"Error inesperado: {e}")
+        logging.error(f"Unexpected error: {e}")
 
 if __name__ == "__main__":
-    # Verificar que se pasaron los argumentos necesarios
+    # Check if the necessary arguments were provided
     if len(sys.argv) != 3:
-        print("Uso: python script.py <idioma_subtitulos> <archivo_urls>")
+        print("Usage: python script.py <subtitle_language> <urls_file>")
         sys.exit(1)
 
-    # Argumentos
-    sub_lang = sys.argv[1]  # Idioma de los subtítulos (e.g., "fr")
-    urls_file = sys.argv[2]  # Nombre del archivo con las URLs
+    # Arguments
+    sub_lang = sys.argv[1]  # Subtitle language (e.g., "fr")
+    urls_file = sys.argv[2]  # Name of the file containing the URLs
 
-    # Llamar a la función de descarga
+    # Set up logging
+    log_file = os.path.join("download", sub_lang, "download.log")
+    os.makedirs(os.path.dirname(log_file), exist_ok=True)  # Ensure the directory exists
+    setup_logging(log_file)
+
+    # Call the download function
     download_videos(sub_lang, urls_file)
